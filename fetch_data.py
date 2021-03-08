@@ -9,6 +9,9 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from pandas.plotting import scatter_matrix
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.base import BaseEstimator, TransformerMixin
 
 DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml/master/"
 HOUSING_PATH = "datasets/housing"
@@ -166,6 +169,12 @@ housing_cat_encoded = encoder.fit_transform(housing_cat)
 
 # print(encoder.classes_) ['<1H OCEAN' 'INLAND' 'ISLAND' 'NEAR BAY' 'NEAR OCEAN'] [0 = <1H OCEAN]
 
+encoder = OneHotEncoder()
+housing_cat_1hot = encoder.fit_transform(housing_cat_encoded.reshape(-1,1)) # outputs a scipy sparse matrix
+# print(housing_cat_1hot.toarray()) convert the sparse matrix into an array
 
-
+#short method to convert text categories to integer categories and from integer categories to one-hot categoties
+encoder = LabelBinarizer()
+housing_cat_1hot = encoder.fit_transform(housing_cat)
+# print(housing_cat_1hot) gives a numpy array by default
 
