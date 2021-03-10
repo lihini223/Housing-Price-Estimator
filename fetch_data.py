@@ -12,6 +12,21 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import Pipeline
+from sklearn.pipeline import FeatureUnion
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression 
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import RandomForestRegressor
+
+try:
+    from sklearn.compose import ColumnTransformer
+except ImportError:
+    from future_encoders import ColumnTransformer # Scikit-Learn < 0.20
 
 DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml/master/"
 HOUSING_PATH = "datasets/housing"
@@ -180,6 +195,21 @@ housing_cat_1hot = encoder.fit_transform(housing_cat)
 #custom transformers
 rooms_ix, bedrooms_ix, population_ix, household_ix = 3, 4, 5, 6
 
+def add_extra_features(X, add_bedrooms_per_room=True):
+    rooms_per_household = X[:, rooms_ix] / X[:, household_ix]
+    population_per_household = X[:, population_ix] / X[:, household_ix]
+    if add_bedrooms_per_room:
+        bedrooms_per_room = X[:, bedrooms_ix] / X[:, rooms_ix]
+        return np.c_[X, rooms_per_household, population_per_household,
+                     bedrooms_per_room]
+    else:
+        return np.c_[X, rooms_per_household, population_per_household]
+
+attr_adder = FunctionTransformer(add_extra_features, validate=False,
+                                 kw_args={"add_bedrooms_per_room": False})
+housing_extra_attribs = attr_adder.fit_transform(housing.values)
+
+
 class CombinedAttributesAdder(BaseEstimator, TransformerMixin):
     def __init__(self, add_bedrooms_per_room = True):
         self.add_bedrooms_per_room = add_bedrooms_per_room
@@ -198,3 +228,123 @@ class CombinedAttributesAdder(BaseEstimator, TransformerMixin):
         
         attr_adder = CombinedAttributesAdder(add_bedrooms_per_room=False)
         housing_extra_attribs = attr_adder.transform(housing.values)
+
+
+#Transformation Pipelines
+
+num_pipeline = Pipeline([
+        ('imputer', SimpleImputer(strategy="median")),
+        ('attribs_adder', FunctionTransformer(add_extra_features, validate=False)),
+        ('std_scaler', StandardScaler()),
+    ])
+
+
+housing_num_tr = num_pipeline.fit_transform(housing_num)
+# print(housing_num_tr)
+
+
+num_attribs = list(housing_num)
+cat_attribs = ["ocean_proximity"]
+
+full_pipeline = ColumnTransformer([
+    ("num", num_pipeline, num_attribs),
+    ("cat", OneHotEncoder(), cat_attribs)
+])
+
+housing_prepared = full_pipeline.fit_transform(housing)
+
+# print(housing_prepared)
+# print(housing_prepared.shape)
+
+
+class OldDataFrameSelector(BaseEstimator, TransformerMixin):
+    def __init__(self, attribute_names):
+        self.attribute_names = attribute_names
+    
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X[self.attribute_names].values
+
+
+old_num_pipeline = Pipeline([
+        ('selector', OldDataFrameSelector(num_attribs)),
+        ('imputer', SimpleImputer(strategy="median")),
+        ('attribs_adder', FunctionTransformer(add_extra_features, validate=False)),
+        ('std_scaler', StandardScaler()),
+    ])
+
+old_cat_pipeline = Pipeline([
+        ('selector', OldDataFrameSelector(cat_attribs)),
+        ('cat_encoder', OneHotEncoder(sparse=False)),
+    ])
+
+old_full_pipeline = FeatureUnion(transformer_list=[
+        ("num_pipeline", old_num_pipeline),
+        ("cat_pipeline", old_cat_pipeline),
+    ])
+
+old_housing_prepared = old_full_pipeline.fit_transform(housing)
+
+# print(old_housing_prepared)
+
+# print(np.allclose(housing_prepared, old_housing_prepared))
+
+
+
+# # Training and evaluating on the training set
+
+lin_reg = LinearRegression()
+lin_reg.fit(housing_prepared, housing_labels)
+
+some_data = housing.iloc[:5]
+some_labels = housing_labels.iloc[:5]
+some_data_prepared = full_pipeline.transform(some_data)
+
+#print("predictions:", lin_reg.predict(some_data_prepared))
+
+# print("Labels:", list(some_labels))
+
+# print(some_data_prepared)
+
+# measuring the regression model's RMSE
+housing_predictions = lin_reg.predict(housing_prepared)
+lin_mse = mean_squared_error(housing_labels, housing_predictions)
+lin_rmse = np.sqrt(lin_mse)
+# print("lin_rmse " + str(lin_rmse))
+
+#calculating mean_absolute_error
+lin_mae = mean_absolute_error(housing_labels, housing_predictions)
+# print("lin_mae " + str(lin_mae))
+
+#Train a decision tree regressor
+tree_reg = DecisionTreeRegressor(random_state=42)
+tree_reg.fit(housing_prepared, housing_labels)
+
+tree_mse = mean_squared_error(housing_labels, housing_predictions)
+tree_rmse = np.sqrt(tree_mse)
+# print("tree_rmse " + str(tree_rmse))
+
+#fine tune your model
+scores = cross_val_score(tree_reg, housing_prepared, housing_labels,
+                         scoring="neg_mean_squared_error", cv=10)
+tree_rmse_scores = np.sqrt(-scores)
+
+def display_scores(scores):
+    print("Scores:", scores)
+    print("Mean:", scores.mean())
+    print("Standard deviation:", scores.std())
+
+print(display_scores(tree_rmse_scores))
+
+lin_scores = cross_val_score(lin_reg, housing_prepared, housing_labels,
+                             scoring="neg_mean_squared_error", cv=10)
+lin_rmse_scores = np.sqrt(-lin_scores)
+print(display_scores(lin_rmse_scores))
+
+
+forest_reg = RandomForestRegressor(n_estimators=10, random_state=42)
+print(forest_reg.fit(housing_prepared, housing_labels)
+
+
