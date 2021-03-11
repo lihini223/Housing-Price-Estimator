@@ -367,20 +367,21 @@ forest_mse = mean_squared_error(housing_labels, housing_predictions)
 forest_rmse = np.sqrt(forest_mse)
 print(forest_rmse)
 
-# forest_scores = cross_val_score(forest_reg, housing_prepared, housing_labels,
-#                                 scoring="neg_mean_squared_error", cv=10)
-# forest_rmse_scores = np.sqrt(-forest_scores)
-# display_scores(forest_rmse_scores)
+forest_scores = cross_val_score(forest_reg, housing_prepared, housing_labels,
+                                scoring="neg_mean_squared_error", cv=10)
+forest_rmse_scores = np.sqrt(-forest_scores)
+display_scores(forest_rmse_scores)
 
-# scores = cross_val_score(lin_reg, housing_prepared, housing_labels, scoring="neg_mean_squared_error", cv=10)
-# pd.Series(np.sqrt(-scores)).describe()
+scores = cross_val_score(lin_reg, housing_prepared,
+                         housing_labels, scoring="neg_mean_squared_error", cv=10)
+pd.Series(np.sqrt(-scores)).describe()
 
-# svm_reg = SVR(kernel="linear")
-# svm_reg.fit(housing_prepared, housing_labels)
-# housing_predictions = svm_reg.predict(housing_prepared)
-# svm_mse = mean_squared_error(housing_labels, housing_predictions)
-# svm_rmse = np.sqrt(svm_mse)
-# svm_rmse
+svm_reg = SVR(kernel="linear")
+svm_reg.fit(housing_prepared, housing_labels)
+housing_predictions = svm_reg.predict(housing_prepared)
+svm_mse = mean_squared_error(housing_labels, housing_predictions)
+svm_rmse = np.sqrt(svm_mse)
+svm_rmse
 
 # grid search
 # param_grid = [
